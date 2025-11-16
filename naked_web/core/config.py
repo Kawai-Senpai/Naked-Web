@@ -1,0 +1,35 @@
+"""Global configuration for Naked Web."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Optional, Tuple
+
+DEFAULT_USER_AGENT = "Mozilla/5.0 (compatible; NakedWeb/1.0; +https://github.com/)"
+
+
+@dataclass(slots=True)
+class NakedWebConfig:
+    """Holds API credentials and runtime knobs for the toolkit."""
+
+    google_api_key: Optional[str] = None
+    google_cse_id: Optional[str] = None
+
+    user_agent: str = DEFAULT_USER_AGENT
+    request_timeout: int = 20
+    max_text_chars: int = 20000
+    respect_robots_txt: bool = False
+    max_asset_bytes: int = 5_000_000
+    asset_context_chars: int = 320
+    crawl_delay_range: Tuple[float, float] = (0.0, 0.0)
+    selenium_headless: bool = False
+    selenium_window_size: str = "1366,768"
+    selenium_page_load_timeout: int = 35
+    selenium_wait_timeout: int = 15
+    humanize_delay_range: Tuple[float, float] = (1.25, 2.75)
+
+    def ensure_google_ready(self) -> None:
+        if not self.google_api_key or not self.google_cse_id:
+            raise RuntimeError(
+                "Google Custom Search requires both google_api_key and google_cse_id to be set"
+            )

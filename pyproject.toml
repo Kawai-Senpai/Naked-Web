@@ -1,0 +1,25 @@
+[project]
+name = "naked-web"
+version = "0.1.0"
+description = "Unified Google Custom Search and scraping helpers for agent tooling."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+  { name = "Naked Web Maintainers" }
+]
+dependencies = [
+  "requests>=2.32.0",
+  "beautifulsoup4>=4.12.0",
+  "lxml>=5.2.1",
+  "pydantic>=2.7.0"
+]
+
+[project.optional-dependencies]
+selenium = [
+  "selenium>=4.23.0",
+  "undetected-chromedriver>=3.5.5"
+]
+
+[build-system]
+requires = ["hatchling>=1.18.0"]
+build-backend = "hatchling.build"

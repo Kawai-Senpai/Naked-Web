@@ -1,0 +1,15 @@
+__pycache__
+*.pyc
+.env
+.vscode/
+.DS_Store
+node_modules/
+dist/
+build/
+*.log
+coverage
+.idea/
+
+.pytest_cache/
+.mypy_cache/
+.infinitecode
