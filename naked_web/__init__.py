@@ -13,6 +13,15 @@ from .scrape import download_assets, fetch_page
 from .search import SearchClient
 from .core.models import PageContentBundle, HeadingBlock, MetaTag
 
+# Stealth functions now come from utils
+from .utils import (
+    fetch_with_stealth,
+    inject_stealth_scripts,
+    random_mouse_movement,
+    random_scroll_pattern,
+    setup_stealth_driver,
+)
+
 __all__ = [
     "NakedWebConfig",
     "SearchClient",
@@ -30,4 +39,10 @@ __all__ = [
     "PageContentBundle",
     "MetaTag",
     "HeadingBlock",
+    # Stealth exports (may be None if selenium not installed)
+    "fetch_with_stealth",
+    "inject_stealth_scripts",
+    "random_mouse_movement",
+    "random_scroll_pattern",
+    "setup_stealth_driver",
 ]

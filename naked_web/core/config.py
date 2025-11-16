@@ -5,7 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-DEFAULT_USER_AGENT = "Mozilla/5.0 (compatible; NakedWeb/1.0; +https://github.com/)"
+# Use a realistic Chrome user agent to avoid bot detection
+# Update this periodically to match current browser versions
+DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 
 @dataclass(slots=True)
@@ -21,12 +23,17 @@ class NakedWebConfig:
     respect_robots_txt: bool = False
     max_asset_bytes: int = 5_000_000
     asset_context_chars: int = 320
-    crawl_delay_range: Tuple[float, float] = (0.0, 0.0)
+    crawl_delay_range: Tuple[float, float] = (1.0, 2.5)
     selenium_headless: bool = False
     selenium_window_size: str = "1366,768"
     selenium_page_load_timeout: int = 35
     selenium_wait_timeout: int = 15
     humanize_delay_range: Tuple[float, float] = (1.25, 2.75)
+    
+    # Browser profile persistence for anti-detection
+    # If not specified, creates `.nakedweb/browser_profile/` in current working directory
+    # This path will be auto-populated from default template on first use
+    selenium_profile_path: Optional[str] = None
 
     def ensure_google_ready(self) -> None:
         if not self.google_api_key or not self.google_cse_id:

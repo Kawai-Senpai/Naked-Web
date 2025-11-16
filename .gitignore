@@ -13,3 +13,12 @@ coverage
 .pytest_cache/
 .mypy_cache/
 .infinitecode
+
+# Browser profile data (contains cookies, history, cache)
+naked_web/_data/default_profile/*
+!naked_web/_data/default_profile/.gitkeep
+
+# User's working profile directories
+.nakedweb/
+profiles/
+*_profile/

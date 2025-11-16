@@ -315,6 +315,22 @@ def fetch_page(
     use_js: bool = False,
     extra_headers: Optional[Dict[str, str]] = None,
 ) -> PageSnapshot:
+    """
+    Fetch a web page and return a structured snapshot.
+    
+    Args:
+        url: Target URL to fetch
+        cfg: Configuration object
+        use_js: Use Selenium rendering with stealth mode (undetected-chromedriver + anti-detection)
+        extra_headers: Additional HTTP headers for requests-based fetch
+    
+    Returns:
+        PageSnapshot with HTML, text, assets, and metadata
+    
+    Note:
+        When use_js=True, stealth mode is automatically used (CDP scripts, mouse simulation, scrolling).
+        This provides maximum bot detection bypass. Use use_js=False for simple HTTP requests.
+    """
     cfg = cfg or NakedWebConfig()
     if cfg.respect_robots_txt and not _allowed_by_robots(url, cfg.user_agent):
         return PageSnapshot(
@@ -331,8 +347,15 @@ def fetch_page(
         )
 
     try:
+        # Use stealth Selenium when JS rendering is requested
         if use_js:
-            html, headers, status_code, final_url = _fetch_with_selenium(url, cfg)
+            try:
+                from .utils.stealth import fetch_with_stealth
+                html, headers, status_code, final_url = fetch_with_stealth(url, cfg)
+            except ImportError:
+                # Fall back to basic Selenium if stealth module not available
+                html, headers, status_code, final_url = _fetch_with_selenium(url, cfg)
+        # Default to plain HTTP requests
         else:
             html, headers, status_code, final_url = _fetch_with_requests(url, cfg, extra_headers)
 
