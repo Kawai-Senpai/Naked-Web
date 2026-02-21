@@ -1,64 +1,404 @@
-# Naked Web
+<p align="center">
+  <h1 align="center">Naked Web</h1>
+  <p align="center">
+    <strong>The Swiss Army Knife for Web Scraping, Search, and Browser Automation</strong>
+  </p>
+  <p align="center">
+    <em>Dual-engine power: Selenium + Playwright - unified under one clean API.</em>
+  </p>
+</p>
 
-Naked Web is a focused toolkit that wraps Google Custom Search and modern scraping primitives so agents (or humans) can pull search results, raw HTML, assets, and paginated slices with one cohesive API.
+<p align="center">
+  <a href="#-installation">Installation</a> &bull;
+  <a href="#-quick-start">Quick Start</a> &bull;
+  <a href="#-features-at-a-glance">Features</a> &bull;
+  <a href="#-scraping-engine-selenium">Selenium</a> &bull;
+  <a href="#-automation-engine-playwright">Playwright</a> &bull;
+  <a href="#-google-search-integration">Search</a> &bull;
+  <a href="#-site-crawler">Crawler</a> &bull;
+  <a href="#-configuration">Config</a>
+</p>
 
-## Highlights
+---
 
-- Google Custom Search JSON API integration with automatic content enrichment per result
-- First class scraping with optional Selenium (undetected-chromedriver) rendering for JS heavy pages
-- **Enhanced stealth mode** with anti-detection for bot-protected sites (Reddit, LinkedIn, etc.)
-- Asset harvesting (CSS, JS, images, media, links) plus line/char HTML pagination
-- Site crawler + asset download helpers so you can build custom cloning flows
-- Structured content extraction (meta tags, headings, paragraphs, inline styles, CSS, fonts)
-- Context-rich asset metadata (alt text, captions, snippets, anchor text) for every stylesheet/script/image/link
-- Regex/glob search helpers over crawled text plus asset/link contexts
+## What is Naked Web?
 
-## Install
+Naked Web is a **production-grade Python toolkit** that combines web scraping, search, and full browser automation into a single cohesive library. It wraps two powerful browser engines - **Selenium** (via undetected-chromedriver) and **Playwright** - so you can pick the right tool for every job without juggling separate libraries.
+
+| Capability | Engine | Use Case |
+|---|---|---|
+| **HTTP Scraping** | `requests` + `BeautifulSoup` | Fast, lightweight page fetching |
+| **JS Rendering** | Selenium (undetected-chromedriver) | Bot-protected sites, stealth scraping |
+| **Browser Automation** | Playwright | Click, type, scroll, extract - full control |
+| **Google Search** | Google CSE JSON API | Search with optional content enrichment |
+| **Site Crawling** | Built-in BFS crawler | Multi-page crawling with depth/duration limits |
+
+---
+
+## Why Naked Web?
+
+- **Two engines, one API** - Selenium for stealth, Playwright for automation. No need to choose.
+- **Anti-detection built in** - CDP script injection, mouse simulation, realistic scrolling, profile persistence.
+- **Zero-vision automation** - Playwright's `AutoBrowser` indexes every interactive element by number. Click `[3]`, type into `[7]` - no screenshots, no coordinates, no CSS selectors needed.
+- **Structured extraction** - Meta tags, headings, paragraphs, inline styles, assets with rich context metadata.
+- **HTML pagination** - Line-based and character-based chunking for feeding content to LLMs.
+- **Pydantic models everywhere** - Typed, validated, serializable data from every operation.
+
+---
+
+## Installation
 
 ```bash
+# Core (HTTP scraping, search, content extraction, crawling)
 pip install -e .
-# add JS rendering support (installs selenium + undetected-chromedriver)
-pip install -e .[selenium]
+
+# + Selenium engine (stealth scraping, JS rendering, bot bypass)
+pip install -e ".[selenium]"
+
+# + Playwright engine (browser automation, DOM interaction)
+pip install -e ".[automation]"
+playwright install chromium
+
+# Everything
+pip install -e ".[selenium,automation]"
+playwright install chromium
 ```
 
-## Config basics
+**Requirements:** Python 3.9+
+
+**Core dependencies:** `requests`, `beautifulsoup4`, `lxml`, `pydantic`
+
+---
+
+## Features at a Glance
+
+### Scraping & Fetching
+- Plain HTTP fetch with `requests` + `BeautifulSoup`
+- Selenium JS rendering with undetected-chromedriver
+- Enhanced stealth mode (CDP injection, mouse simulation, realistic scrolling)
+- Persistent browser profiles for bot detection bypass
+- `robots.txt` compliance (optional)
+- Configurable timeouts, delays, and user agents
+
+### Browser Automation (Playwright)
+- Launch Chromium, Firefox, or WebKit
+- Navigate, click, type, scroll, send keyboard shortcuts
+- DOM state extraction with indexed interactive elements
+- Content extraction as clean Markdown
+- Link extraction across the page
+- Dropdown selection, screenshots, JavaScript execution
+- Multi-tab management (open, switch, close, list)
+- Persistent profile support (cookies, localStorage survive sessions)
+
+### Search & Discovery
+- Google Custom Search JSON API integration
+- Automatic content enrichment per search result
+- Optional JS rendering for search result pages
+
+### Content Extraction
+- Structured bundles: meta tags, headings, paragraphs, inline styles, CSS/font links
+- Asset harvesting: stylesheets, scripts, images, media, fonts, links
+- Rich context metadata per asset (alt text, captions, snippets, anchor text, source position)
+
+### Crawling & Analysis
+- Breadth-first site crawler with depth, page count, and duration limits
+- Configurable crawl delays to avoid rate limiting
+- Regex/glob pattern search across crawled page text and HTML
+- Asset pattern matching with contextual windows
+
+### Pagination
+- Line-based HTML chunking with `next_start` / `has_more` cursors
+- Character-based HTML chunking for LLM-sized windows
+- Works on both HTML snapshots and raw text
+
+---
+
+## Quick Start
 
 ```python
-from naked_web import NakedWebConfig
+from naked_web import NakedWebConfig, fetch_page
 
-cfg = NakedWebConfig(
-    google_api_key="YOUR_KEY",
-    google_cse_id="YOUR_CSE_ID",
-    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-)
+cfg = NakedWebConfig()
+
+# Simple HTTP fetch
+snap = fetch_page("https://example.com", cfg=cfg)
+print(snap.text[:500])
+print(snap.assets.images)
+
+# With Selenium JS rendering
+snap = fetch_page("https://example.com", cfg=cfg, use_js=True)
+
+# With full stealth mode (bot-protected sites)
+snap = fetch_page("https://example.com", cfg=cfg, use_stealth=True)
 ```
 
-### Stealth Selenium rendering
+---
 
-When `use_stealth=True`, Naked Web uses enhanced anti-detection measures including CDP script injection, mouse simulation, and realistic scrolling. For sites with sophisticated bot detection (Reddit, LinkedIn, etc.), use stealth mode:
+## Scraping Engine (Selenium)
+
+NakedWeb's Selenium integration uses **undetected-chromedriver** with layered anti-detection measures. Perfect for sites like Reddit, LinkedIn, and other bot-protected targets.
+
+### Basic JS Rendering
+
+```python
+from naked_web import fetch_page, NakedWebConfig
+
+cfg = NakedWebConfig()
+snap = fetch_page("https://reddit.com/r/Python/", cfg=cfg, use_js=True)
+print(snap.text[:500])
+```
+
+### Stealth Mode
+
+When `use_stealth=True`, NakedWeb activates the full anti-detection suite:
 
 ```python
 snap = fetch_page("https://reddit.com/r/Python/", cfg=cfg, use_stealth=True)
 ```
 
-See [STEALTH.md](STEALTH.md) for detailed documentation on anti-detection features.
+**What stealth mode does:**
 
-**Key stealth configuration:**
+| Layer | Technique |
+|---|---|
+| **CDP Injection** | Masks `navigator.webdriver`, mocks plugins, languages, and permissions |
+| **Mouse Simulation** | Random, human-like cursor movements across the viewport |
+| **Realistic Scrolling** | Variable-speed scrolling with pauses and occasional scroll-backs |
+| **Enhanced Headers** | Proper `Accept-Language`, viewport config, plugin mocking |
+| **Profile Persistence** | Reuse cookies, history, and cache across sessions |
 
-- `selenium_headless`: toggle windowed browsing (default `False` to avoid headless fingerprints)
-- `selenium_window_size`: specify the viewport (defaults to `1366,768`)
-- `selenium_page_load_timeout` / `selenium_wait_timeout`: manage waits and timeouts
-- `humanize_delay_range`: random delay range (seconds) inserted before navigation and scrolls
-- `crawl_delay_range`: delays between page fetches (defaults to 1.0-2.5s to avoid volume detection)
-
-These options live on `NakedWebConfig` so you can set them globally for both the CLI helpers and library calls.
-
-## Search with optional scraping
+### Advanced: Direct Driver Control
 
 ```python
-from naked_web import SearchClient
+from naked_web.utils.stealth import setup_stealth_driver, inject_stealth_scripts
+from naked_web import NakedWebConfig
+
+cfg = NakedWebConfig(
+    selenium_headless=False,
+    selenium_window_size="1920,1080",
+    humanize_delay_range=(1.5, 3.5),
+)
+
+driver = setup_stealth_driver(cfg, use_profile=False)
+try:
+    driver.get("https://example.com")
+    html = driver.page_source
+finally:
+    driver.quit()
+```
+
+### Stealth Fetch Helper
+
+```python
+from naked_web.utils.stealth import fetch_with_stealth
+from naked_web import NakedWebConfig
+
+cfg = NakedWebConfig(
+    selenium_headless=False,
+    humanize_delay_range=(1.5, 3.5),
+)
+
+html, headers, status, final_url = fetch_with_stealth(
+    "https://www.reddit.com/r/Python/",
+    cfg=cfg,
+    perform_mouse_movements=True,
+    perform_realistic_scrolling=True,
+)
+print(f"Fetched {len(html)} chars from {final_url}")
+```
+
+### Browser Profile Persistence
+
+Fresh browsers are a red flag for bot detectors. NakedWeb supports **persistent browser profiles** so cookies, history, and cache survive across sessions.
+
+**Warm up a profile:**
+
+```bash
+# Create a default profile with organic browsing history
+python scripts/warmup_profile.py
+
+# Custom profile with longer warm-up
+python scripts/warmup_profile.py --profile "profiles/reddit" --duration 3600
+```
+
+**Use the warmed profile:**
+
+```python
+cfg = NakedWebConfig()  # Uses default warmed profile automatically
+snap = fetch_page("https://www.reddit.com/r/Python/", cfg=cfg, use_js=True)
+```
+
+**Custom profile path:**
+
+```python
+cfg = NakedWebConfig(selenium_profile_path="profiles/reddit")
+snap = fetch_page("https://www.reddit.com/r/Python/", cfg=cfg, use_js=True)
+```
+
+**Profile rotation for heavy workloads:**
+
+```python
+import random
+from pathlib import Path
+
+profiles = list(Path("profiles").glob("reddit_*"))
+cfg = NakedWebConfig(
+    selenium_profile_path=str(random.choice(profiles)),
+    crawl_delay_range=(10.0, 30.0),
+)
+```
+
+> Profiles store cookies, history, localStorage, cache, and more. Keep them secure and don't commit them to version control.
+
+---
+
+## Automation Engine (Playwright)
+
+The `AutoBrowser` class provides **full browser automation** powered by Playwright. It extracts every interactive element on the page and assigns each a numeric index - so you can click, type, and interact without writing CSS selectors or using vision models.
+
+### Launch and Navigate
+
+```python
+from naked_web.automation import AutoBrowser
+
+browser = AutoBrowser(headless=True, browser_type="chromium")
+browser.launch()
+browser.navigate("https://example.com")
+```
+
+### DOM State Extraction
+
+Get a structured snapshot of every interactive element on the page:
+
+```python
+state = browser.get_state()
+print(state.to_text())
+```
+
+**Example output:**
+
+```
+URL: https://example.com
+Title: Example Domain
+Scroll: 0% (800px viewport, 1200px total)
+Interactive elements (3 total):
+  [1] a "More information..." -> https://www.iana.org/domains/example
+  [2] input type="text" placeholder="Search..."
+  [3] button "Submit"
+```
+
+### Interact by Index
+
+```python
+browser.click(1)                          # Click element [1]
+browser.type_text(2, "hello world")       # Type into element [2]
+browser.scroll(direction="down", amount=2) # Scroll down 2 pages
+browser.send_keys("Enter")               # Press Enter
+browser.select_option(4, "Option A")     # Select dropdown option
+```
+
+### Extract Content
+
+```python
+# Page content as clean Markdown
+result = browser.extract_content()
+print(result.extracted_content)
+
+# All links on the page
+links = browser.extract_links()
+print(links.extracted_content)
+
+# Take a screenshot
+browser.screenshot("page.png")
+
+# Run arbitrary JavaScript
+result = browser.evaluate_js("document.title")
+print(result.extracted_content)
+```
+
+### Multi-Tab Management
+
+```python
+browser.new_tab("https://google.com")    # Open new tab
+tabs = browser.list_tabs()               # List all tabs
+browser.switch_tab(0)                    # Switch to first tab
+browser.close_tab(1)                     # Close second tab
+```
+
+### Persistent Profiles (Playwright)
+
+Stay logged in across sessions:
+
+```python
+browser = AutoBrowser(
+    headless=False,
+    user_data_dir="profiles/my_session",
+    browser_type="chromium",
+)
+browser.launch()
+# Cookies, localStorage, history all persist to disk
+browser.navigate("https://example.com")
+# ... interact ...
+browser.close()  # Data flushed to profile directory
+```
+
+### Supported Browsers
+
+| Engine | Install Command |
+|---|---|
+| Chromium | `playwright install chromium` |
+| Firefox | `playwright install firefox` |
+| WebKit | `playwright install webkit` |
+
+```python
+browser = AutoBrowser(browser_type="firefox")
+```
+
+### Full AutoBrowser API
+
+| Method | Description |
+|---|---|
+| `launch()` | Start the browser |
+| `close()` | Close browser and clean up |
+| `navigate(url)` | Go to a URL |
+| `go_back()` | Navigate back in history |
+| `get_state(max_elements)` | Extract interactive DOM elements with indices |
+| `click(index)` | Click element by index |
+| `type_text(index, text, clear)` | Type into an input element |
+| `scroll(direction, amount)` | Scroll up/down by pages |
+| `send_keys(keys)` | Send keyboard shortcuts |
+| `select_option(index, value)` | Select dropdown option |
+| `wait(seconds)` | Wait for dynamic content |
+| `extract_content()` | Extract page as Markdown |
+| `extract_links()` | Extract all page links |
+| `screenshot(path)` | Save screenshot to file |
+| `evaluate_js(expression)` | Run JavaScript in page |
+| `new_tab(url)` | Open a new tab |
+| `switch_tab(tab_index)` | Switch to a tab |
+| `close_tab(tab_index)` | Close a tab |
+| `list_tabs()` | List all open tabs |
+
+---
+
+## Google Search Integration
+
+Search the web via Google Custom Search JSON API with optional page content enrichment:
+
+```python
+from naked_web import SearchClient, NakedWebConfig
+
+cfg = NakedWebConfig(
+    google_api_key="YOUR_KEY",
+    google_cse_id="YOUR_CSE_ID",
+)
 
 client = SearchClient(cfg)
+
+# Basic search
+resp = client.search("python web scraping", max_results=5)
+for r in resp["results"]:
+    print(f"{r['title']} - {r['url']}")
+
+# Search + fetch page content for each result
 resp = client.search(
     "python selenium scraping",
     max_results=3,
@@ -67,37 +407,39 @@ resp = client.search(
 )
 ```
 
-Each entry contains title, snippet, url, score, and optional cleaned content + HTTP status.
+Each result contains: `title`, `snippet`, `url`, `score`, and optionally `content`, `status_code`, `final_url`.
 
-## Scrape single pages
+---
 
-```python
-from naked_web import fetch_page
+## Structured Content Extraction
 
-# Basic HTTP fetch
-snap = fetch_page("https://example.com", cfg=cfg, use_js=False)
-
-# With basic Selenium rendering
-snap = fetch_page("https://example.com", cfg=cfg, use_js=True)
-
-# With enhanced stealth mode (recommended for bot-protected sites)
-snap = fetch_page("https://example.com", cfg=cfg, use_stealth=True)
-
-print(snap.text[:500])
-print(snap.assets.stylesheets)
-```
-
-## Structured content bundles
+Pull structured data from any fetched page:
 
 ```python
-from naked_web import extract_content
+from naked_web import fetch_page, extract_content, NakedWebConfig
 
-bundle = extract_content(snap, include_inline_styles=True)
-print(bundle.headings[:3])
-print(bundle.css_links)
+cfg = NakedWebConfig()
+snap = fetch_page("https://example.com", cfg=cfg)
+
+bundle = extract_content(
+    snap,
+    include_meta=True,
+    include_headings=True,
+    include_paragraphs=True,
+    include_inline_styles=True,
+    include_links=True,
+)
+
+print(bundle.title)
+print(bundle.meta)          # List of MetaTag objects
+print(bundle.headings)      # List of HeadingBlock objects (level + text)
+print(bundle.paragraphs)    # List of paragraph strings
+print(bundle.css_links)     # Stylesheet URLs
+print(bundle.font_links)    # Font URLs
+print(bundle.inline_styles) # Raw CSS from <style> tags
 ```
 
-Or fetch + extract + paginate in a single call:
+### One-Shot: Fetch + Extract + Paginate
 
 ```python
 from naked_web import collect_page
@@ -113,565 +455,302 @@ package = collect_page(
 )
 ```
 
-## Paginate HTML
+---
+
+## Asset Harvesting
+
+Every fetched page comes with a full `PageAssets` breakdown:
 
 ```python
-from naked_web import get_html_lines, get_html_chars
+snap = fetch_page("https://example.com", cfg=cfg)
 
-chunk = get_html_lines(snap, start_line=100, num_lines=50)
-print(chunk["next_start"], chunk["has_more"])
+snap.assets.stylesheets       # CSS file URLs
+snap.assets.scripts           # JS file URLs
+snap.assets.images            # Image URLs (including srcset)
+snap.assets.media             # Video/audio URLs
+snap.assets.fonts             # Font file URLs (.woff, .woff2, .ttf, etc.)
+snap.assets.links             # All anchor href URLs
 ```
 
-# Build custom clones
-
-Use `crawl_site` to gather pages and `download_assets` to persist files wherever you like:
+Each category also has a `*_details` list with rich `AssetContext` metadata:
 
 ```python
-from naked_web import crawl_site, download_assets
+for img in snap.assets.image_details:
+    print(img.url)        # Resolved absolute URL
+    print(img.alt)        # Alt text
+    print(img.caption)    # figcaption text (if inside <figure>)
+    print(img.snippet)    # Raw HTML snippet of the tag
+    print(img.context)    # Surrounding text content
+    print(img.position)   # Source line number
+    print(img.attrs)      # All HTML attributes as dict
+```
+
+### Download Assets
+
+```python
+from naked_web import download_assets
+
+download_assets(snap, output_dir="./mirror/assets", cfg=cfg)
+```
+
+---
+
+## HTML Pagination
+
+Split large HTML into manageable chunks for LLM consumption:
+
+```python
+from naked_web import get_html_lines, get_html_chars, slice_text_lines, slice_text_chars
+
+# Line-based pagination
+chunk = get_html_lines(snap, start_line=0, num_lines=50)
+print(chunk["content"])
+print(chunk["has_more"])      # True if more lines exist
+print(chunk["next_start"])    # Starting line for next chunk
+
+# Character-based pagination
+chunk = get_html_chars(snap, start=0, length=4000)
+print(chunk["content"])
+print(chunk["next_start"])
+
+# Also works on raw text strings
+chunk = slice_text_lines("your raw text here", start_line=0, num_lines=100)
+chunk = slice_text_chars("your raw text here", start=0, length=5000)
+```
+
+---
+
+## Site Crawler
+
+Breadth-first crawler with fine-grained controls:
+
+```python
+from naked_web import crawl_site, NakedWebConfig
+
+cfg = NakedWebConfig(crawl_delay_range=(1.0, 2.5))
 
 pages = crawl_site(
     "https://example.com",
     cfg=cfg,
-    max_pages=10,
-    max_depth=2,
-    max_duration=15,
-    delay_range=(0.5, 1.5),
+    max_pages=20,
+    max_depth=3,
+    max_duration=60,            # Stop after 60 seconds
+    same_domain_only=True,
+    use_js=False,
+    delay_range=(0.5, 1.5),     # Override per-crawl delay
 )
+
 for url, snapshot in pages.items():
-    # write snapshot.html + snapshot.assets via your own logic
-    download_assets(snapshot, output_dir="./mirror/assets", cfg=cfg)
+    print(f"{url} - {snapshot.status_code} - {len(snapshot.text)} chars")
 ```
 
-## Pattern search + contextual matches
-
-After crawling, use `find_text_matches` for glob/regex searches across page text (or raw HTML) and `find_asset_matches` to inspect any asset/link metadata with controllable context windows:
+### Pattern Search Across Crawled Pages
 
 ```python
-from naked_web import crawl_site, find_asset_matches, find_text_matches
+from naked_web import find_text_matches, find_asset_matches
 
-pages = crawl_site("https://example.com/docs", cfg=cfg, max_pages=25, max_depth=3)
-
+# Search page text with regex or glob patterns
 text_hits = find_text_matches(
     pages,
-    patterns=["*privacy*", r"cookie policy"],
+    patterns=["*privacy*", r"cookie\s+policy"],
     use_regex=True,
     context_chars=90,
 )
 
+# Search asset metadata
 asset_hits = find_asset_matches(
     pages,
     patterns=["*.css", "*analytics*"],
     context_chars=140,
 )
 
-print(text_hits.get("https://example.com/docs/privacy"))
-print(asset_hits.get("https://example.com/docs/privacy"))
+for url, matches in text_hits.items():
+    print(f"{url}: {len(matches)} matches")
 ```
 
-Tune `cfg.asset_context_chars` if you need global control over how much surrounding HTML is captured for each asset/link snippet.
+---
 
-## Live fetch test
+## Configuration
 
-Quickly verify live fetching, JS rendering, and pagination:
+All settings live on `NakedWebConfig`:
+
+```python
+from naked_web import NakedWebConfig
+
+cfg = NakedWebConfig(
+    # --- Google Search ---
+    google_api_key="YOUR_KEY",
+    google_cse_id="YOUR_CSE_ID",
+
+    # --- HTTP ---
+    user_agent="Mozilla/5.0 ...",
+    request_timeout=20,
+    max_text_chars=20000,
+    respect_robots_txt=False,
+
+    # --- Assets ---
+    max_asset_bytes=5_000_000,
+    asset_context_chars=320,
+
+    # --- Selenium ---
+    selenium_headless=False,
+    selenium_window_size="1366,768",
+    selenium_page_load_timeout=35,
+    selenium_wait_timeout=15,
+    selenium_profile_path=None,     # Path to persistent Chrome profile
+
+    # --- Humanization ---
+    humanize_delay_range=(1.25, 2.75),
+    crawl_delay_range=(1.0, 2.5),
+)
+```
+
+| Setting | Default | Description |
+|---|---|---|
+| `user_agent` | Chrome 120 UA string | HTTP and Selenium user agent |
+| `request_timeout` | `20` | HTTP request timeout (seconds) |
+| `max_text_chars` | `20000` | Max cleaned text characters per page |
+| `respect_robots_txt` | `False` | Check robots.txt before fetching |
+| `selenium_headless` | `False` | Run Chrome in headless mode |
+| `selenium_window_size` | `1366,768` | Browser viewport dimensions |
+| `selenium_page_load_timeout` | `35` | Selenium page load timeout (seconds) |
+| `selenium_wait_timeout` | `15` | Selenium element wait timeout (seconds) |
+| `selenium_profile_path` | `None` | Persistent browser profile directory |
+| `humanize_delay_range` | `(1.25, 2.75)` | Random delay before navigation/scroll (seconds) |
+| `crawl_delay_range` | `(1.0, 2.5)` | Delay between crawler page fetches (seconds) |
+| `asset_context_chars` | `320` | Characters of HTML context captured per asset |
+| `max_asset_bytes` | `5000000` | Max size for downloaded assets |
+
+---
+
+## Scripts & Testing
 
 ```bash
+# Live fetch test - verify HTTP, JS rendering, and pagination
 python scripts/live_fetch_test.py https://example.com --mode both --inline-styles --output payload.json
-```
 
-## Local smoke test
-
-Run the lightweight check script (hits a real site by default) to ensure helpers wire up:
-
-```bash
+# Smoke test - quick sanity check
 python scripts/smoke_test.py
-```
 
-The script fetches `https://www.google.com` (override via `NAKED_WEB_SMOKE_URL` or a CLI arg), then instantiates core classes, exercises pagination helpers, and prints diagnostic output. If the live fetch fails, it falls back to a synthetic HTML payload.
-
-## Enhanced Stealth Scraping
-
-NakedWeb now includes enhanced anti-detection capabilities for sites with sophisticated bot detection (like Reddit, LinkedIn, etc.).
-
-### What's New
-
-The `naked_web.stealth` module provides:
-
-1. **CDP Script Injection**: Masks `navigator.webdriver` and other automation signals
-2. **Mouse Movement Simulation**: Random, human-like cursor movements across the viewport
-3. **Realistic Scrolling**: Variable-speed scrolling with pauses and occasional scroll-backs
-4. **Enhanced Headers**: Proper Accept-Language, viewport configuration, and plugin mocking
-
-### Installation
-
-Stealth features require the Selenium extras:
-
-```bash
-pip install -e .[selenium]
-```
-
-### Basic Usage
-
-```python
-from naked_web import NakedWebConfig
-from naked_web.stealth import fetch_with_stealth
-
-cfg = NakedWebConfig(
-    selenium_headless=False,  # Windowed mode less detectable
-    selenium_window_size="1920,1080",
-    humanize_delay_range=(1.5, 3.5),  # Random delays
-)
-
-html, headers, status, final_url = fetch_with_stealth(
-    "https://www.reddit.com/r/Python/",
-    cfg=cfg,
-    perform_mouse_movements=True,
-    perform_realistic_scrolling=True,
-)
-
-print(f"Fetched {len(html)} chars from {final_url}")
-```
-
-### Advanced: Direct Driver Control
-
-For maximum flexibility, use the driver setup directly:
-
-```python
-from naked_web.stealth import setup_stealth_driver, inject_stealth_scripts
-from naked_web import NakedWebConfig
-
-cfg = NakedWebConfig()
-driver = setup_stealth_driver(cfg, use_profile=False)
-
-try:
-    driver.get("https://example.com")
-    # Your custom interactions here
-    html = driver.page_source
-finally:
-    driver.quit()
-```
-
-### Testing Against Bot Detection
-
-Use the included test script to validate stealth capabilities:
-
-```bash
-# Test with default Reddit URL (known bot detection)
+# Stealth test against bot detection
 python scripts/stealth_test.py
-
-# Test custom URL in windowed mode
 python scripts/stealth_test.py "https://www.reddit.com/r/Python/" --no-headless
+python scripts/stealth_test.py --no-mouse --no-scroll --output reddit.html
 
-# Disable specific features for debugging
-python scripts/stealth_test.py --no-mouse --no-scroll
-
-# Save fetched HTML
-python scripts/stealth_test.py --output reddit_test.html
-```
-
-The script will report:
-- Fetch success/failure
-- Bot detection indicators (e.g., "Prove your humanity")
-- Content preview
-- HTML saved to file (if `--output` specified)
-
-### Configuration Tips
-
-**For maximum stealth:**
-- Disable headless mode (`selenium_headless=False`)
-- Use realistic viewport sizes (1920x1080, 1366x768)
-- Set longer humanize delays (2-4 seconds)
-- Consider using residential proxies (not included in base library)
-- Rotate user agents occasionally
-
-**For Reddit specifically:**
-- Authenticate with real accounts when possible
-- Honor rate limits (add delays between requests)
-- Consider using Reddit's official API instead
-
-### Limitations
-
-Even with these measures, some sites may still detect automation:
-
-1. **TLS Fingerprinting**: Chrome's TLS signature can be identified
-2. **Canvas/WebGL**: GPU rendering patterns differ in automated contexts
-3. **Timing Analysis**: Perfect timing consistency can be suspicious
-4. **IP Reputation**: Datacenter IPs are often flagged
-
-For highly protected sites, consider:
-- Residential proxy services with rotation
-- Real browser profiles with existing cookies/history
-- Playwright with additional stealth plugins
-- Respecting site ToS and using official APIs
-
-### Memory
-
-Bot detection strategies and mitigation techniques are documented in memory:
-
-```python
-from naked_web.mcp_infinite_code import memory_search
-
-results = memory_search(query="bot detection selenium")
-```
-
-This retrieves saved knowledge about fingerprinting vectors, bypass strategies, and platform-specific considerations.
-
-# Browser Profile Persistence Guide
-
-## Overview
-
-NakedWeb now supports **persistent browser profiles** to dramatically improve bot detection bypass. Instead of using a fresh browser every time (which looks suspicious), you can use profiles with real cookies, browsing history, and cached data.
-
-## Why Use Profiles?
-
-**The Problem:**
-- Fresh browsers are immediately suspicious to bot detection systems
-- No cookies = no session history = obvious bot
-- Reddit, Twitter, and other sites detect this instantly
-
-**The Solution:**
-- Use real browser profiles with organic browsing history
-- Cookies and cache persist across sessions
-- Websites see a "real user" because you ARE a real user
-- Trust builds over time as history accumulates
-
-## Quick Start
-
-### 1. Warm Up a Profile
-
-Run the warm-up script to create an organic browsing profile:
-
-```bash
-# Create the default library profile (recommended)
+# Profile warm-up
 python scripts/warmup_profile.py
-
-# Or create a custom profile in your own directory
-python scripts/warmup_profile.py --profile "C:/my_profiles/reddit_profile"
-
-# Customize warm-up duration (default is 30 minutes)
-python scripts/warmup_profile.py --duration 3600  # 1 hour
+python scripts/warmup_profile.py --profile profiles/reddit --duration 1800
 ```
 
-**What to do during warm-up:**
-1. Browse normally - visit Google, Reddit, news sites
-2. Search for random things
-3. Read articles, scroll, click around
-4. Optional: Log into accounts (if you want persistent logins)
-5. Let it run for at least 15-30 minutes
+---
 
-The script will guide you through the process.
+## Architecture
 
-### 2. Use the Profile
-
-#### Default Profile (Automatic)
-
-By default, NakedWeb will automatically use the warmed profile:
-
-```python
-from naked_web import NakedWebConfig, fetch_page
-
-cfg = NakedWebConfig()  # use_default_profile=True by default
-
-# This will use the default warmed profile
-result = fetch_page("https://www.reddit.com/r/Python/", cfg=cfg, use_js=True)
+```
+naked_web/
+  __init__.py              # Public API surface
+  scrape.py                # HTTP fetch, Selenium rendering, asset extraction
+  search.py                # Google Custom Search client
+  content.py               # Structured content extraction
+  crawler.py               # BFS site crawler + pattern search
+  pagination.py            # Line/char-based HTML pagination
+  core/
+    config.py              # NakedWebConfig dataclass
+    models.py              # Pydantic models (PageSnapshot, PageAssets, etc.)
+  utils/
+    browser.py             # Selenium helpers (scroll, wait)
+    stealth.py             # Anti-detection (CDP injection, mouse, scrolling)
+    text.py                # Text cleaning utilities
+    timing.py              # Delay/jitter helpers
+  automation/              # Playwright-based browser automation
+    browser.py             # AutoBrowser class
+    actions.py             # Click, type, scroll, extract, screenshot
+    state.py               # DOM state extraction engine
+    models.py              # ActionResult, PageState, InteractiveElement, TabInfo
 ```
 
-#### Custom Profile
-
-Specify your own profile directory:
-
-```python
-cfg = NakedWebConfig(
-    selenium_profile_path="C:/my_profiles/reddit_profile"
-)
-
-result = fetch_page("https://www.reddit.com/r/Python/", cfg=cfg, use_js=True)
-```
-
-#### Disable Profiles (Not Recommended)
-
-To use a fresh browser every time:
-
-```python
-cfg = NakedWebConfig(
-    use_default_profile=False
-)
-```
-
-⚠️ **Warning:** This makes bot detection more likely!
-
-## Profile Persistence
-
-### How It Works
-
-When you use a profile:
-1. **First Request:** Browser loads existing cookies/history from profile
-2. **During Browsing:** New data is added (cookies, cache, localStorage)
-3. **After Closing:** All new data is saved back to profile directory
-4. **Next Request:** Profile now contains MORE history = more trusted
-
-### Long-Term Benefits
-
-The more you use a profile, the better it becomes:
-- Websites remember you as a "returning visitor"
-- Session cookies persist (no need to re-login)
-- Behavioral patterns look natural
-- Trust score increases over time
-
-## Best Practices
-
-### Do's ✅
-
-- **Create separate profiles for different purposes**
-  ```bash
-  python scripts/warmup_profile.py --profile profiles/reddit
-  python scripts/warmup_profile.py --profile profiles/twitter
-  python scripts/warmup_profile.py --profile profiles/news
-  ```
-
-- **Warm up profiles regularly**
-  - Re-run the warm-up script monthly
-  - Let it build fresh organic traffic
-
-- **Use realistic delays**
-  ```python
-  cfg = NakedWebConfig(
-      crawl_delay_range=(5.0, 15.0),  # Longer delays = more human
-      selenium_profile_path="profiles/reddit"
-  )
-  ```
-
-- **Keep profiles secure**
-  - Don't commit profiles to git (already in .gitignore)
-  - Don't share profiles publicly
-  - Encrypt profile directories if they contain sensitive data
-
-### Don'ts ❌
-
-- **Don't use the same profile for high-frequency scraping**
-  - Websites may detect unusual activity
-  - Spread requests across time or use multiple profiles
-
-- **Don't log into your personal accounts during warm-up**
-  - Unless you specifically want those credentials in the profile
-  - Create throwaway accounts instead
-
-- **Don't reuse profiles across different IPs**
-  - Sudden IP changes look suspicious
-  - Create new profiles when changing network location
-
-## Advanced Configuration
-
-### Multiple Profiles Strategy
-
-For serious projects, maintain a pool of profiles:
-
-```python
-import random
-from pathlib import Path
-
-def get_random_profile():
-    """Rotate through multiple profiles"""
-    profile_dir = Path("profiles")
-    profiles = list(profile_dir.glob("reddit_*"))
-    return str(random.choice(profiles))
-
-cfg = NakedWebConfig(
-    selenium_profile_path=get_random_profile(),
-    crawl_delay_range=(10.0, 30.0)
-)
-```
-
-### Profile Management Script
-
-Create profiles in batch:
-
-```bash
-# Create 5 different Reddit profiles
-for i in 1 2 3 4 5; do
-    python scripts/warmup_profile.py --profile "profiles/reddit_$i" --duration 1800
-done
-```
-
-### Combining with Proxies
-
-For maximum stealth:
-
-```python
-# Different profiles for different proxies/IPs
-profiles = {
-    "proxy1.example.com": "profiles/proxy1_profile",
-    "proxy2.example.com": "profiles/proxy2_profile",
-}
-
-current_proxy = get_current_proxy()
-cfg = NakedWebConfig(
-    selenium_profile_path=profiles[current_proxy]
-)
-```
-
-## Troubleshooting
-
-### "Default profile not found" warning
-
-**Solution:** Run the warm-up script:
-```bash
-python scripts/warmup_profile.py
-```
-
-### Browser crashes during warm-up
-
-**Common causes:**
-- Insufficient RAM (close other programs)
-- Corrupted Chrome installation (reinstall Chrome)
-- Profile directory permissions (check write access)
-
-**Solution:** Delete the profile directory and try again:
-```bash
-rm -rf naked_web/_data/default_profile
-python scripts/warmup_profile.py
-```
-
-### Still getting CAPTCHA with profiles
-
-**Possible reasons:**
-1. **Profile is too fresh** - Warm it up for longer (1-2 hours)
-2. **IP reputation** - Your IP may be flagged (try residential proxy)
-3. **Request patterns** - Increase delays between requests
-4. **TLS fingerprinting** - Some sites detect Chrome automation at network level
-
-**Additional steps:**
-- Visit the target site manually during warm-up
-- Log into an account (if appropriate)
-- Interact with content (like, comment, upvote)
-- Use longer delays: `crawl_delay_range=(30.0, 60.0)`
-
-### Profile becomes corrupted
-
-**Symptoms:** Browser crashes, login loops, blank pages
-
-**Solution:** Delete and recreate:
-```bash
-rm -rf profiles/my_profile
-python scripts/warmup_profile.py --profile profiles/my_profile
-```
-
-## Technical Details
-
-### Profile Directory Structure
-
-A Chrome profile contains:
-```
-default_profile/
-├── Cookies              # Session and persistent cookies
-├── History              # Browsing history database
-├── Preferences          # Browser settings
-├── Local Storage/       # Website localStorage data
-├── Session Storage/     # Session-specific data
-├── Cache/               # Cached images, scripts, etc.
-└── ... (many more Chrome-specific files)
-```
-
-### How undetected-chromedriver Uses Profiles
-
-When you specify a profile:
-1. Chrome loads the profile directory at startup
-2. All cookies, history, and settings are restored
-3. Websites see a "returning visitor" with existing session
-4. New data is written back to the profile directory
-5. Next run uses the updated profile
-
-### Security Considerations
-
-**What's in a profile:**
-- Cookies (may include authentication tokens)
-- Browsing history (all visited URLs)
-- localStorage (API keys, user preferences)
-- Cached files (images, scripts)
-- Form data (saved addresses, etc.)
-
-**Security tips:**
-- Encrypt profile directories with sensitive data
-- Use throwaway accounts for warm-up
-- Don't share profile directories
-- Regularly audit what's stored in profiles
-- Use separate profiles for different security levels
-
-## Examples
-
-### Example 1: Basic Usage
-
-```python
-from naked_web import NakedWebConfig, fetch_page
-
-# Use default warmed profile
-cfg = NakedWebConfig()
-result = fetch_page("https://www.reddit.com/r/Python/", cfg=cfg, use_js=True)
-
-if "captcha" not in result.html.lower():
-    print("Success! No CAPTCHA detected")
-```
-
-### Example 2: Custom Profile Per Project
-
-```python
-# Project-specific profile
-import os
-from pathlib import Path
-
-project_root = Path(__file__).parent
-profile_path = project_root / ".browser_profile"
-
-cfg = NakedWebConfig(
-    selenium_profile_path=str(profile_path)
-)
-
-# Profile persists across all runs of this project
-result = fetch_page(url, cfg=cfg, use_js=True)
-```
-
-### Example 3: Profile Rotation
-
-```python
-from pathlib import Path
-import random
-import time
-
-class ProfilePool:
-    def __init__(self, profile_dir="profiles"):
-        self.profiles = list(Path(profile_dir).glob("profile_*"))
-        self.last_used = {}
-        
-    def get_profile(self, min_cooldown=300):
-        """Get a profile that hasn't been used recently"""
-        now = time.time()
-        available = [
-            p for p in self.profiles
-            if now - self.last_used.get(p, 0) > min_cooldown
-        ]
-        
-        if not available:
-            # Wait for cooldown
-            time.sleep(min_cooldown)
-            available = self.profiles
-        
-        profile = random.choice(available)
-        self.last_used[profile] = now
-        return str(profile)
-
-# Usage
-pool = ProfilePool()
-
-for url in urls_to_scrape:
-    cfg = NakedWebConfig(
-        selenium_profile_path=pool.get_profile(),
-        crawl_delay_range=(10.0, 20.0)
-    )
-    result = fetch_page(url, cfg=cfg, use_js=True)
-    time.sleep(random.uniform(60, 120))  # Long delays between requests
-```
-
-## See Also
-
-- [STEALTH.md](STEALTH.md) - Anti-detection features
-- [README.md](README.md) - Main library documentation
-- `scripts/warmup_profile.py` - Profile warm-up tool source code
+---
+
+## Public API Reference
+
+### Core Scraping
+
+| Export | Description |
+|---|---|
+| `NakedWebConfig` | Global configuration dataclass |
+| `fetch_page(url, cfg, use_js, use_stealth)` | Fetch a single page (HTTP / Selenium / Stealth) |
+| `download_assets(snapshot, output_dir, cfg)` | Download assets from a snapshot to disk |
+| `extract_content(snapshot, ...)` | Extract structured content bundle |
+| `collect_page(url, ...)` | One-shot fetch + extract + paginate |
+
+### Search
+
+| Export | Description |
+|---|---|
+| `SearchClient(cfg)` | Google Custom Search with content enrichment |
+
+### Crawling
+
+| Export | Description |
+|---|---|
+| `crawl_site(url, cfg, ...)` | BFS crawler with depth/duration/throttle controls |
+| `find_text_matches(pages, patterns, ...)` | Regex/glob search across crawled page text |
+| `find_asset_matches(pages, patterns, ...)` | Regex/glob search across asset metadata |
+
+### Pagination
+
+| Export | Description |
+|---|---|
+| `get_html_lines(snapshot, start_line, num_lines)` | Line-based HTML pagination |
+| `get_html_chars(snapshot, start, length)` | Character-based HTML pagination |
+| `slice_text_lines(text, start_line, num_lines)` | Line-based raw text pagination |
+| `slice_text_chars(text, start, length)` | Character-based raw text pagination |
+
+### Stealth (Selenium)
+
+| Export | Description |
+|---|---|
+| `fetch_with_stealth(url, cfg, ...)` | Full stealth fetch with humanization |
+| `setup_stealth_driver(cfg, ...)` | Create a stealth-configured Chrome driver |
+| `inject_stealth_scripts(driver)` | Inject CDP anti-detection scripts |
+| `random_mouse_movement(driver)` | Simulate human-like mouse movements |
+| `random_scroll_pattern(driver)` | Simulate realistic scrolling behavior |
+
+### Automation (Playwright)
+
+| Export | Description |
+|---|---|
+| `AutoBrowser` | Full browser automation controller |
+| `BrowserActionResult` | Result model for browser actions |
+| `PageState` | Page state with indexed interactive elements |
+| `InteractiveElement` | Single interactive DOM element model |
+| `TabInfo` | Browser tab information model |
+
+### Models
+
+| Export | Description |
+|---|---|
+| `PageSnapshot` | Complete page fetch result (HTML, text, assets, metadata) |
+| `PageAssets` | Categorized asset URLs with context details |
+| `AssetContext` | Rich metadata for a single asset |
+| `PageContentBundle` | Structured content (meta, headings, paragraphs, styles) |
+| `MetaTag` | Parsed meta tag |
+| `HeadingBlock` | Heading level + text |
+| `LineSlice` / `CharSlice` | Pagination result models |
+| `SearchResult` | Single search result entry |
+
+---
+
+## Limitations & Notes
+
+- **TLS fingerprinting** - Chrome's TLS signature can be identified by advanced detectors.
+- **Canvas/WebGL** - GPU rendering patterns may differ in automated contexts.
+- **IP reputation** - Datacenter IPs are often flagged. Consider residential proxies for heavy use.
+- **Selenium and Playwright are optional** - Core HTTP scraping works without either engine installed.
+- **Google Search requires API keys** - Get them from the [Google Custom Search Console](https://programmablesearchengine.google.com/).
+
+---
+
+## License
+
+MIT
