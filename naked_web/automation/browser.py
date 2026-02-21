@@ -42,6 +42,96 @@ class AutoBrowser:
         browser.close()
     """
 
+    # Realistic Chrome user agent (updated periodically)
+    _DEFAULT_USER_AGENT = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/131.0.0.0 Safari/537.36"
+    )
+
+    # Stealth JavaScript injected before every page load to mask automation signals
+    _STEALTH_JS = """
+    // Remove webdriver property
+    Object.defineProperty(navigator, 'webdriver', {
+        get: () => undefined,
+        configurable: true
+    });
+
+    // Override the permissions API
+    const originalQuery = window.navigator.permissions.query;
+    window.navigator.permissions.query = (parameters) => (
+        parameters.name === 'notifications' ?
+            Promise.resolve({ state: Notification.permission }) :
+            originalQuery(parameters)
+    );
+
+    // Mock plugins array (real Chrome has plugins)
+    Object.defineProperty(navigator, 'plugins', {
+        get: () => {
+            const plugins = [
+                { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+                { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
+                { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' },
+            ];
+            plugins.length = 3;
+            return plugins;
+        },
+        configurable: true
+    });
+
+    // Mock languages
+    Object.defineProperty(navigator, 'languages', {
+        get: () => ['en-US', 'en'],
+        configurable: true
+    });
+
+    // Mock Chrome runtime (headless Chrome is missing this)
+    if (!window.chrome) {
+        window.chrome = {};
+    }
+    if (!window.chrome.runtime) {
+        window.chrome.runtime = {
+            connect: function() {},
+            sendMessage: function() {},
+        };
+    }
+
+    // Remove headless signals from navigator.userAgent
+    // (Playwright already handles this via the user_agent context param, but just in case)
+    const originalUserAgent = navigator.userAgent;
+    if (originalUserAgent.includes('HeadlessChrome')) {
+        Object.defineProperty(navigator, 'userAgent', {
+            get: () => originalUserAgent.replace('HeadlessChrome', 'Chrome'),
+            configurable: true
+        });
+    }
+
+    // Fix missing connection info
+    if (navigator.connection === undefined) {
+        Object.defineProperty(navigator, 'connection', {
+            get: () => ({
+                effectiveType: '4g',
+                rtt: 50,
+                downlink: 10,
+                saveData: false,
+            }),
+            configurable: true
+        });
+    }
+
+    // Override hardware concurrency (headless sometimes reports 1)
+    Object.defineProperty(navigator, 'hardwareConcurrency', {
+        get: () => 8,
+        configurable: true
+    });
+
+    // Override platform if needed
+    Object.defineProperty(navigator, 'platform', {
+        get: () => 'Win32',
+        configurable: true
+    });
+    """
+
     def __init__(
         self,
         headless: bool = True,
@@ -131,12 +221,29 @@ class AutoBrowser:
             if engine is None:
                 engine = self._playwright.chromium
 
-            # Common context arguments
+            # Resolve user agent: explicit > default stealth UA
+            effective_ua = self._user_agent or self._DEFAULT_USER_AGENT
+
+            # Common context arguments - look like a real Chrome browser
             context_args: Dict[str, Any] = {
                 "viewport": {"width": self._viewport_width, "height": self._viewport_height},
+                "user_agent": effective_ua,
+                "locale": "en-US",
+                "timezone_id": "Asia/Kolkata",
+                "extra_http_headers": {
+                    "Accept-Language": "en-US,en;q=0.9",
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+                    "Accept-Encoding": "gzip, deflate, br",
+                    "Sec-Ch-Ua": '"Chromium";v="131", "Not_A Brand";v="24"',
+                    "Sec-Ch-Ua-Mobile": "?0",
+                    "Sec-Ch-Ua-Platform": '"Windows"',
+                    "Sec-Fetch-Dest": "document",
+                    "Sec-Fetch-Mode": "navigate",
+                    "Sec-Fetch-Site": "none",
+                    "Sec-Fetch-User": "?1",
+                    "Upgrade-Insecure-Requests": "1",
+                },
             }
-            if self._user_agent:
-                context_args["user_agent"] = self._user_agent
 
             if self._user_data_dir:
                 # ---------- PERSISTENT PROFILE MODE ----------
@@ -150,9 +257,16 @@ class AutoBrowser:
                     user_data_dir=str(profile_dir),
                     headless=self._headless,
                     slow_mo=self._slow_mo,
+                    args=[
+                        "--disable-blink-features=AutomationControlled",
+                    ],
+                    ignore_default_args=["--enable-automation"],
                     **context_args,
                 )
                 self._context.set_default_timeout(self._timeout)
+
+                # Inject stealth scripts to mask automation signals
+                self._context.add_init_script(self._STEALTH_JS)
                 self._browser = None  # No separate browser object
                 self._persistent = True
 
@@ -181,10 +295,17 @@ class AutoBrowser:
                 self._browser = engine.launch(
                     headless=self._headless,
                     slow_mo=self._slow_mo,
+                    args=[
+                        "--disable-blink-features=AutomationControlled",
+                    ],
                 )
 
                 self._context = self._browser.new_context(**context_args)
                 self._context.set_default_timeout(self._timeout)
+
+                # Inject stealth scripts to mask automation signals
+                self._context.add_init_script(self._STEALTH_JS)
+
                 self._persistent = False
 
                 # Create first page

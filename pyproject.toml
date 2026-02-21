@@ -1,6 +1,6 @@
 [project]
 name = "naked-web"
-version = "1.0.0"
+version = "1.1.0"
 description = "The Swiss Army Knife for Web Scraping, Search, and Browser Automation - dual Selenium + Playwright engines under one clean API."
 readme = "README.md"
 license = "MIT"

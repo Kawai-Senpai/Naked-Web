@@ -22,3 +22,4 @@ naked_web/_data/default_profile/*
 .nakedweb/
 profiles/
 *_profile/
+_browser_profile_backup
