@@ -19,6 +19,9 @@ selenium = [
   "selenium>=4.23.0",
   "undetected-chromedriver>=3.5.5"
 ]
+automation = [
+  "playwright>=1.40.0"
+]
 
 [build-system]
 requires = ["hatchling>=1.18.0"]

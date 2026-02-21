@@ -22,6 +22,18 @@ from .utils import (
     setup_stealth_driver,
 )
 
+# Optional automation module (requires playwright)
+try:
+    from .automation import AutoBrowser, ActionResult as BrowserActionResult, PageState, InteractiveElement, TabInfo
+    _AUTOMATION_AVAILABLE = True
+except ImportError:
+    AutoBrowser = None  # type: ignore
+    BrowserActionResult = None  # type: ignore
+    PageState = None  # type: ignore
+    InteractiveElement = None  # type: ignore
+    TabInfo = None  # type: ignore
+    _AUTOMATION_AVAILABLE = False
+
 __all__ = [
     "NakedWebConfig",
     "SearchClient",
@@ -45,4 +57,10 @@ __all__ = [
     "random_mouse_movement",
     "random_scroll_pattern",
     "setup_stealth_driver",
+    # Automation exports (may be None if playwright not installed)
+    "AutoBrowser",
+    "BrowserActionResult",
+    "PageState",
+    "InteractiveElement",
+    "TabInfo",
 ]
