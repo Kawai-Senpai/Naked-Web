@@ -1,28 +1,77 @@
 [project]
 name = "naked-web"
-version = "0.1.0"
-description = "Unified Google Custom Search and scraping helpers for agent tooling."
+version = "1.0.0"
+description = "The Swiss Army Knife for Web Scraping, Search, and Browser Automation - dual Selenium + Playwright engines under one clean API."
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.9"
 authors = [
-  { name = "Naked Web Maintainers" }
+  { name = "Ranit Bhowmick", email = "mail@ranitbhowmick.com" }
+]
+keywords = [
+  "web-scraping",
+  "browser-automation",
+  "selenium",
+  "playwright",
+  "stealth",
+  "google-search",
+  "crawler",
+  "anti-detection",
+  "beautifulsoup",
+  "undetected-chromedriver",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Internet :: WWW/HTTP",
+  "Topic :: Internet :: WWW/HTTP :: Browsers",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Software Development :: Testing",
+  "Typing :: Typed",
 ]
 dependencies = [
   "requests>=2.32.0",
   "beautifulsoup4>=4.12.0",
   "lxml>=5.2.1",
-  "pydantic>=2.7.0"
+  "pydantic>=2.7.0",
 ]
 
 [project.optional-dependencies]
 selenium = [
   "selenium>=4.23.0",
-  "undetected-chromedriver>=3.5.5"
+  "undetected-chromedriver>=3.5.5",
 ]
 automation = [
-  "playwright>=1.40.0"
+  "playwright>=1.40.0",
 ]
+all = [
+  "selenium>=4.23.0",
+  "undetected-chromedriver>=3.5.5",
+  "playwright>=1.40.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Kawai-Senpai/Naked-Web"
+Repository = "https://github.com/Kawai-Senpai/Naked-Web"
+"Bug Tracker" = "https://github.com/Kawai-Senpai/Naked-Web/issues"
 
 [build-system]
 requires = ["hatchling>=1.18.0"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "naked_web/",
+  "README.md",
+  "LICENSE",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["naked_web"]
