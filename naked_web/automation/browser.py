@@ -380,6 +380,54 @@ class AutoBrowser:
             self._persistent = False
             return ActionResult(success=False, error=f"Error closing browser: {str(e)}")
 
+    def relaunch(self, headless: bool) -> ActionResult:
+        """Close and relaunch the browser with a different headless setting.
+
+        Preserves the current URL by saving it before close and navigating
+        back after relaunch.  The persistent profile (cookies, localStorage,
+        session data) survives the switch because it lives on disk.
+
+        Args:
+            headless: Whether the relaunched browser should be headless.
+
+        Returns:
+            ActionResult indicating success or failure.
+        """
+        # Save current URL so we can restore it after relaunch
+        current_url: Optional[str] = None
+        if self._launched and self._pages:
+            try:
+                current_url = self.page.url
+                if current_url in ("about:blank", "chrome://newtab/"):
+                    current_url = None
+            except Exception:
+                current_url = None
+
+        # Close current browser (flushes profile to disk)
+        close_result = self.close()
+        if not close_result.success:
+            return ActionResult(
+                success=False,
+                error=f"Failed to close browser before relaunch: {close_result.error}",
+            )
+
+        # Switch headless mode and relaunch
+        self._headless = headless
+        launch_result = self.launch()
+        if not launch_result.success:
+            return launch_result
+
+        # Navigate back to the previous URL
+        if current_url:
+            self.navigate(current_url)
+
+        mode = "headless" if headless else "visible"
+        url_msg = f" at {current_url}" if current_url else ""
+        return ActionResult(
+            success=True,
+            message=f"Browser relaunched in {mode} mode{url_msg}",
+        )
+
     def _ensure_launched(self) -> Optional[ActionResult]:
         """Check if browser is launched, return error ActionResult if not."""
         if not self._launched or not self._pages:

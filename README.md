@@ -14,6 +14,7 @@
   <a href="#-features-at-a-glance">Features</a> &bull;
   <a href="#-scraping-engine-selenium">Selenium</a> &bull;
   <a href="#-automation-engine-playwright">Playwright</a> &bull;
+  <a href="#-using-autobrowser-as-an-ai-agent-tool">Agent Tool</a> &bull;
   <a href="#-google-search-integration">Search</a> &bull;
   <a href="#-site-crawler">Crawler</a> &bull;
   <a href="#-configuration">Config</a>
@@ -50,23 +51,27 @@ Naked Web is a **production-grade Python toolkit** that combines web scraping, s
 
 ```bash
 # Core (HTTP scraping, search, content extraction, crawling)
-pip install -e .
+pip install naked-web
 
 # + Selenium engine (stealth scraping, JS rendering, bot bypass)
-pip install -e ".[selenium]"
+pip install naked-web[selenium]
 
 # + Playwright engine (browser automation, DOM interaction)
-pip install -e ".[automation]"
+pip install naked-web[automation]
 playwright install chromium
 
 # Everything
-pip install -e ".[selenium,automation]"
+pip install naked-web[all]
 playwright install chromium
 ```
 
 **Requirements:** Python 3.9+
 
 **Core dependencies:** `requests`, `beautifulsoup4`, `lxml`, `pydantic`
+
+**Optional dependencies:**
+- **Selenium engine:** `selenium`, `undetected-chromedriver`
+- **Playwright engine:** `playwright`
 
 ---
 
@@ -89,6 +94,9 @@ playwright install chromium
 - Dropdown selection, screenshots, JavaScript execution
 - Multi-tab management (open, switch, close, list)
 - Persistent profile support (cookies, localStorage survive sessions)
+- **Built-in stealth** - anti-detection JS injection (`navigator.webdriver` masking, plugin mocking, Chrome runtime spoofing)
+- **Anti-detection Chrome flags** - 15+ flags to reduce automation fingerprint
+- **Headless/visible switching** - `relaunch()` to toggle headless mode mid-session (for CAPTCHA solving, user handover, visual debugging)
 
 ### Search & Discovery
 - Google Custom Search JSON API integration
@@ -341,6 +349,68 @@ browser.navigate("https://example.com")
 browser.close()  # Data flushed to profile directory
 ```
 
+### Stealth & Anti-Detection (Playwright)
+
+AutoBrowser includes built-in stealth to bypass bot detection. No extra configuration needed - stealth scripts are injected automatically on every page load.
+
+**What's injected:**
+
+| Signal | Behavior |
+|---|---|
+| `navigator.webdriver` | Returns `undefined` instead of `true` |
+| `navigator.plugins` | Mocked with 3 realistic Chrome plugins |
+| `navigator.languages` | Returns `["en-US", "en"]` |
+| `navigator.hardwareConcurrency` | Returns `8` instead of headless default |
+| `navigator.platform` | Returns `"Win32"` |
+| `navigator.connection` | Mocked with realistic 4G network info |
+| `window.chrome.runtime` | Present (headless Chrome normally omits this) |
+| `Permissions API` | Patched to return real notification state |
+| User-Agent | Cleaned of `HeadlessChrome` marker |
+
+**Chrome flags applied automatically:**
+- `--disable-blink-features=AutomationControlled` - hides automation signal
+- `--disable-infobars` - no "Chrome is being controlled" bar
+- `--no-default-browser-check`, `--no-first-run` - skip first-run dialogs
+- `--disable-extensions` - no extension fingerprint
+- Plus 10+ additional anti-detection flags
+
+```python
+# Stealth is always active - just use AutoBrowser normally
+browser = AutoBrowser(headless=True)
+browser.launch()
+browser.navigate("https://bot-protected-site.com")
+# navigator.webdriver is undefined, plugins are mocked, etc.
+```
+
+### Headless/Visible Switching (Relaunch)
+
+Switch between headless and visible mode mid-session without losing your state. The persistent profile preserves cookies, localStorage, and session data across the switch.
+
+**Use cases:**
+- CAPTCHA solving - switch to visible, let the user solve it, switch back
+- Visual debugging - see what the browser is doing
+- User handover - show the browser to a user, let them interact, take back control
+
+```python
+browser = AutoBrowser(headless=True, user_data_dir="profiles/session")
+browser.launch()
+browser.navigate("https://example.com")
+
+# Hit a CAPTCHA or need user interaction?
+browser.relaunch(headless=False)   # Window pops up visible on screen
+# User solves CAPTCHA or interacts with the page...
+
+browser.relaunch(headless=True)    # Back to headless, cookies preserved
+browser.extract_content()          # Continue automation normally
+```
+
+**What happens during relaunch:**
+1. Current URL is saved
+2. Browser closes (profile data flushed to disk)
+3. Browser relaunches with the new headless setting and same profile
+4. Navigates back to the saved URL
+5. All cookies, localStorage, and session data are preserved
+
 ### Supported Browsers
 
 | Engine | Install Command |
@@ -359,6 +429,7 @@ browser = AutoBrowser(browser_type="firefox")
 |---|---|
 | `launch()` | Start the browser |
 | `close()` | Close browser and clean up |
+| `relaunch(headless)` | Close and relaunch with different headless setting (preserves URL and session) |
 | `navigate(url)` | Go to a URL |
 | `go_back()` | Navigate back in history |
 | `get_state(max_elements)` | Extract interactive DOM elements with indices |
@@ -376,6 +447,9 @@ browser = AutoBrowser(browser_type="firefox")
 | `switch_tab(tab_index)` | Switch to a tab |
 | `close_tab(tab_index)` | Close a tab |
 | `list_tabs()` | List all open tabs |
+| `get_current_url()` | Get the current page URL |
+| `get_current_title()` | Get the current page title |
+| `is_launched` | Property: whether the browser is running |
 
 ---
 
@@ -644,6 +718,99 @@ python scripts/warmup_profile.py --profile profiles/reddit --duration 1800
 
 ---
 
+## Using AutoBrowser as an AI Agent Tool
+
+AutoBrowser is designed to be wrapped as a tool for AI agents (LLMs, MCP servers, function-calling APIs). Its index-based interaction model means **no vision, no screenshots, no CSS selectors** - just numbered elements.
+
+### Why It Works for Agents
+
+- **Structured state** - `get_state()` returns a text summary with numbered elements. The agent reads element `[3]` and calls `click(3)`. No parsing HTML or guessing coordinates.
+- **Text in, text out** - Every method returns `ActionResult` with `.to_text()` for easy serialization to the agent.
+- **Stateful** - The browser persists between tool calls. Open once, use many times.
+- **Stealth built-in** - Agents can browse real websites without triggering bot detection.
+- **User handover** - When the agent hits a CAPTCHA or needs human help, `relaunch(headless=False)` opens a visible window. The user interacts, then the agent takes back control.
+
+### Example: MCP Tool Wrapper
+
+```python
+from naked_web.automation import AutoBrowser
+
+# Singleton instance - persists across tool calls
+browser = AutoBrowser(headless=True, user_data_dir="./browser_profile")
+
+def browser_tool(action: str, **kwargs) -> str:
+    """Single tool that handles all browser actions."""
+
+    if action == "open":
+        browser.launch()
+        if kwargs.get("url"):
+            browser.navigate(kwargs["url"])
+        return "Browser opened"
+
+    if action == "navigate":
+        return browser.navigate(kwargs["url"]).to_text()
+
+    if action == "state":
+        return browser.get_state().to_text()
+
+    if action == "click":
+        return browser.click(kwargs["index"]).to_text()
+
+    if action == "type":
+        return browser.type_text(kwargs["index"], kwargs["text"]).to_text()
+
+    if action == "extract_content":
+        return browser.extract_content().to_text()
+
+    if action == "show_browser":  # Hand over to user
+        return browser.relaunch(headless=False).to_text()
+
+    if action == "hide_browser":  # Take back from user
+        return browser.relaunch(headless=True).to_text()
+
+    if action == "close":
+        return browser.close().to_text()
+```
+
+### Agent Workflow Example
+
+```
+Agent: browser_tool(action="open", url="https://example.com")
+       -> "Browser launched. Navigated to https://example.com"
+
+Agent: browser_tool(action="state")
+       -> "URL: https://example.com\nElements:\n  [1] a 'More info'\n  [2] input 'Search'"
+
+Agent: browser_tool(action="type", index=2, text="python web scraping")
+       -> "Typed 'python web scraping' into element [2]"
+
+Agent: browser_tool(action="click", index=3)  # Submit button
+       -> "Clicked element [3]"
+
+Agent: browser_tool(action="extract_content")
+       -> "# Search Results\n1. Beautiful Soup...\n2. Scrapy..."
+```
+
+### CAPTCHA Handover Pattern
+
+When the agent detects a CAPTCHA or needs user interaction:
+
+```
+Agent: browser_tool(action="show_browser")
+       -> "Browser relaunched in visible mode at https://protected-site.com"
+
+Agent: ask_user("Browser is visible. Please solve the CAPTCHA, then say 'done'.")
+User:  "done"
+
+Agent: browser_tool(action="hide_browser")
+       -> "Browser relaunched in headless mode at https://protected-site.com"
+
+Agent: browser_tool(action="extract_content")  # CAPTCHA solved, page loads
+       -> "# Welcome to Protected Site..."
+```
+
+---
+
 ## Architecture
 
 ```
@@ -748,6 +915,12 @@ naked_web/
 - **IP reputation** - Datacenter IPs are often flagged. Consider residential proxies for heavy use.
 - **Selenium and Playwright are optional** - Core HTTP scraping works without either engine installed.
 - **Google Search requires API keys** - Get them from the [Google Custom Search Console](https://programmablesearchengine.google.com/).
+
+---
+
+## Author
+
+Built by **[Ranit Bhowmick](https://ranitbhowmick.com)**
 
 ---
 
