@@ -221,11 +221,21 @@ Fresh browsers are a red flag for bot detectors. NakedWeb supports **persistent 
 **Warm up a profile:**
 
 ```bash
-# Create a default profile with organic browsing history
+# Create the shared default profile with organic browsing history
 python scripts/warmup_profile.py
 
 # Custom profile with longer warm-up
 python scripts/warmup_profile.py --profile "profiles/reddit" --duration 3600
+
+# Warm the same shared profile with Playwright
+python scripts/warmup_playwright_profile.py --duration 3600
+
+# Export/import the warmed profile for another Linux or Windows machine
+python scripts/browser_profile_bundle.py
+
+# Reapply a backed-up profile into the default OS-specific profile location
+./reapply_browser_profile.sh        # Linux/macOS
+reapply_browser_profile.bat         # Windows
 ```
 
 **Use the warmed profile:**
@@ -234,6 +244,11 @@ python scripts/warmup_profile.py --profile "profiles/reddit" --duration 3600
 cfg = NakedWebConfig()  # Uses default warmed profile automatically
 snap = fetch_page("https://www.reddit.com/r/Python/", cfg=cfg, use_js=True)
 ```
+
+By default that shared profile resolves to:
+- Windows: `%LOCALAPPDATA%\.nakedweb\browser_profile`
+- Linux: `$XDG_STATE_HOME/nakedweb/browser_profile` or `~/.local/state/nakedweb/browser_profile`
+- Override: `NAKEDWEB_PROFILE_DIR=/custom/path`
 
 **Custom profile path:**
 
@@ -689,7 +704,7 @@ cfg = NakedWebConfig(
 | `selenium_window_size` | `1366,768` | Browser viewport dimensions |
 | `selenium_page_load_timeout` | `35` | Selenium page load timeout (seconds) |
 | `selenium_wait_timeout` | `15` | Selenium element wait timeout (seconds) |
-| `selenium_profile_path` | `None` | Persistent browser profile directory |
+| `selenium_profile_path` | `None` | Persistent browser profile directory; defaults to NakedWeb's shared OS-specific profile path |
 | `humanize_delay_range` | `(1.25, 2.75)` | Random delay before navigation/scroll (seconds) |
 | `crawl_delay_range` | `(1.0, 2.5)` | Delay between crawler page fetches (seconds) |
 | `asset_context_chars` | `320` | Characters of HTML context captured per asset |
@@ -714,6 +729,9 @@ python scripts/stealth_test.py --no-mouse --no-scroll --output reddit.html
 # Profile warm-up
 python scripts/warmup_profile.py
 python scripts/warmup_profile.py --profile profiles/reddit --duration 1800
+python scripts/warmup_playwright_profile.py --duration 1800
+python scripts/browser_profile_bundle.py
+./reapply_browser_profile.sh
 ```
 
 ---
@@ -734,9 +752,13 @@ AutoBrowser is designed to be wrapped as a tool for AI agents (LLMs, MCP servers
 
 ```python
 from naked_web.automation import AutoBrowser
+from naked_web import get_default_playwright_profile_path
 
 # Singleton instance - persists across tool calls
-browser = AutoBrowser(headless=True, user_data_dir="./browser_profile")
+browser = AutoBrowser(
+    headless=True,
+    user_data_dir=str(get_default_playwright_profile_path()),
+)
 
 def browser_tool(action: str, **kwargs) -> str:
     """Single tool that handles all browser actions."""
@@ -826,6 +848,7 @@ naked_web/
     models.py              # Pydantic models (PageSnapshot, PageAssets, etc.)
   utils/
     browser.py             # Selenium helpers (scroll, wait)
+    profiles.py            # Cross-platform profile path/copy helpers
     stealth.py             # Anti-detection (CDP injection, mouse, scrolling)
     text.py                # Text cleaning utilities
     timing.py              # Delay/jitter helpers

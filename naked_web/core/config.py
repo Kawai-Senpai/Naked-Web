@@ -30,9 +30,9 @@ class NakedWebConfig:
     selenium_wait_timeout: int = 15
     humanize_delay_range: Tuple[float, float] = (1.25, 2.75)
     
-    # Browser profile persistence for anti-detection
-    # If not specified, creates `.nakedweb/browser_profile/` in current working directory
-    # This path will be auto-populated from default template on first use
+    # Browser profile persistence for anti-detection.
+    # If not specified, NakedWeb uses the shared OS-specific profile location
+    # (or NAKEDWEB_PROFILE_DIR when set) for both Selenium and Playwright flows.
     selenium_profile_path: Optional[str] = None
 
     def ensure_google_ready(self) -> None:

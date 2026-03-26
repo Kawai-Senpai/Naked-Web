@@ -1,86 +1,41 @@
-# Browser Profile Data
+# Browser Profile Seed Data
 
-This directory contains browser profile data used for anti-bot-detection.
+This directory can hold optional seed profile data used to bootstrap a new
+NakedWeb browser profile.
 
-## What's in here?
+## What `default_profile/` means now
 
-### `default_profile/`
-The library's default Chrome profile with pre-warmed cookies and browsing history.
-This profile is automatically used when `use_default_profile=True` (default setting)
-and no custom profile path is specified.
+`default_profile/` is not the runtime profile location anymore.
 
-**Important:** This directory should NOT be committed to version control if it contains
-real browsing data. The `.gitignore` already excludes `_data/` directory.
+Instead, NakedWeb now uses an OS-specific default profile path:
+- Windows: `%LOCALAPPDATA%\.nakedweb\browser_profile`
+- Linux: `$XDG_STATE_HOME/nakedweb/browser_profile` or `~/.local/state/nakedweb/browser_profile`
+- Override: `NAKEDWEB_PROFILE_DIR=/custom/path`
 
-## How to create/update profiles
+If `naked_web/_data/default_profile/` exists and contains data, Selenium can use
+it as a seed template the first time it creates a new working profile.
 
-### Create the default profile:
+## When to use this folder
+
+Use this folder only if you want a reusable starter template that gets copied
+into fresh profiles. For most workflows, warming the shared default profile
+directly is simpler.
+
+## Recommended profile workflow
+
 ```bash
 python scripts/warmup_profile.py
+python scripts/warmup_playwright_profile.py
+python scripts/browser_profile_bundle.py
 ```
 
-This will:
-1. Open a headful Chrome browser
-2. Let you browse normally for 30 minutes (configurable)
-3. Save all cookies, history, and localStorage to this directory
-4. The profile will then be used automatically for all Selenium requests
-
-### Create a custom profile:
-```bash
-python scripts/warmup_profile.py --profile "C:/my_profiles/custom"
-```
-
-Then use it in your code:
-```python
-from naked_web import NakedWebConfig, fetch_page
-
-cfg = NakedWebConfig(
-    selenium_profile_path="C:/my_profiles/custom"
-)
-
-result = fetch_page("https://example.com", cfg=cfg, use_js=True)
-```
-
-### Disable profile usage (not recommended):
-```python
-cfg = NakedWebConfig(
-    use_default_profile=False  # Use fresh profile (more likely to be detected)
-)
-```
-
-## Why use profiles?
-
-Real browser profiles with organic browsing history are the most effective way to:
-- Bypass sophisticated bot detection (Reddit, Twitter, etc.)
-- Look like a genuine user (because you ARE a genuine user)
-- Build trust over time as history accumulates
-- Avoid CAPTCHA challenges
-
-## Profile persistence across sessions
-
-When you specify a custom `selenium_profile_path`, the profile is **persistent**.
-Each time you use the library:
-- New cookies are added
-- Browsing history grows
-- The profile becomes more "trusted" by websites
-
-This is the recommended approach for long-term web scraping projects.
+- `warmup_profile.py` warms the shared default profile with Selenium/Chrome.
+- `warmup_playwright_profile.py` warms the same profile with Playwright.
+- `browser_profile_bundle.py` exports or imports the profile for transfer
+  between Linux and Windows machines.
 
 ## Security note
 
-Be careful with sensitive data:
-- Don't commit profiles with logged-in sessions
-- Don't share profile directories publicly
-- Use separate profiles for different projects
-- Consider encrypting profile directories if they contain credentials
-
-## Profile structure
-
-Chrome profile directories contain:
-- `Cookies` - Session cookies and persistent cookies
-- `History` - Browsing history database
-- `Local Storage/` - localStorage data from websites
-- `Preferences` - Browser settings and flags
-- `Cache/` - Cached resources (images, scripts, etc.)
-
-All of these contribute to making the browser look "real" to bot detection systems.
+- Do not commit real browser profiles with live sessions.
+- Do not share profile directories publicly.
+- Use separate profiles for separate projects when needed.

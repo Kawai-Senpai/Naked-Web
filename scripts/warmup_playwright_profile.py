@@ -1,4 +1,4 @@
-"""
+r"""
 Playwright Browser Profile Warm-Up Tool
 
 Opens a HEADFUL (visible) Chromium browser using Playwright with the same
@@ -10,7 +10,9 @@ Browse normally to:
   - Make search engines trust the fingerprint
 
 The profile is saved to the same location AutoBrowser reads from:
-  %LOCALAPPDATA%\.nakedweb\browser_profile  (default)
+  - Windows: %LOCALAPPDATA%\.nakedweb\browser_profile
+  - Linux:   $XDG_STATE_HOME/nakedweb/browser_profile or ~/.local/state/nakedweb/browser_profile
+  - Override: NAKEDWEB_PROFILE_DIR=/custom/path
 
 Usage:
     python scripts/warmup_playwright_profile.py                      # default profile
@@ -30,22 +32,38 @@ from pathlib import Path
 # Add parent directory to path for local dev
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from naked_web.utils.profiles import copy_profile_tree, get_default_playwright_profile_path
+
 
 def get_default_profile_path() -> Path:
     """Get the default NakedWeb/Playwright persistent profile path."""
-    env_path = os.environ.get("NAKEDWEB_PROFILE_DIR")
-    if env_path:
-        return Path(env_path)
-    local_app_data = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
-    return Path(local_app_data) / ".nakedweb" / "browser_profile"
+    return get_default_playwright_profile_path()
 
 
-def copy_from_webautomation(profile_path: Path) -> bool:
-    """Copy cookies/data from WebAutomation profile if it exists and ours is empty."""
-    import shutil
+def resolve_seed_profile_path(explicit_path: str | None = None) -> Path | None:
+    """Resolve an optional seed profile path for first-time warmups."""
+    candidates = []
+    if explicit_path:
+        candidates.append(Path(explicit_path).expanduser())
 
-    wa_profile = Path(r"E:\Python and AI\_My Projects\WebAutomation\profiles\webautomation")
-    if not wa_profile.exists():
+    for env_name in ("NAKEDWEB_SEED_PROFILE", "WEBAUTOMATION_PROFILE_DIR"):
+        env_value = os.environ.get(env_name)
+        if env_value:
+            candidates.append(Path(env_value).expanduser())
+
+    # Keep the old Windows path as a backward-compatible fallback.
+    candidates.append(Path(r"E:\Python and AI\_My Projects\WebAutomation\profiles\webautomation"))
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate.resolve()
+    return None
+
+
+def copy_from_seed_profile(profile_path: Path, source_path: str | None = None) -> bool:
+    """Copy cookies/data from a seed profile if one is configured and ours is empty."""
+    seed_profile = resolve_seed_profile_path(source_path)
+    if seed_profile is None:
         return False
 
     # Check if our profile's Default folder is mostly empty (newly created)
@@ -53,18 +71,16 @@ def copy_from_webautomation(profile_path: Path) -> bool:
     has_history = (our_default / "History").exists() if our_default.exists() else False
 
     if has_history:
-        print("  Profile already has browsing history, skipping WebAutomation copy.")
+        print("  Profile already has browsing history, skipping seed-profile copy.")
         return False
 
-    print(f"  Copying profile data from WebAutomation: {wa_profile}")
+    print(f"  Copying profile data from seed profile: {seed_profile}")
     try:
-        if profile_path.exists():
-            shutil.rmtree(profile_path)
-        shutil.copytree(wa_profile, profile_path, dirs_exist_ok=True)
-        print("  Done - WebAutomation profile data copied.")
+        copy_profile_tree(seed_profile, profile_path, clean_destination=True)
+        print("  Done - seed profile data copied.")
         return True
     except Exception as e:
-        print(f"  Warning: Could not copy WebAutomation profile: {e}")
+        print(f"  Warning: Could not copy seed profile: {e}")
         return False
 
 
@@ -122,7 +138,13 @@ def auto_warmup(context, duration_seconds: int = 300):
     print("  You can continue browsing manually now.\n")
 
 
-def warmup(profile_path: Path, duration_seconds: int = 1800, auto: bool = False, copy_wa: bool = False):
+def warmup(
+    profile_path: Path,
+    duration_seconds: int = 1800,
+    auto: bool = False,
+    copy_wa: bool = False,
+    copy_from: str | None = None,
+):
     """
     Open a headful Playwright Chromium browser with the persistent profile.
 
@@ -130,7 +152,8 @@ def warmup(profile_path: Path, duration_seconds: int = 1800, auto: bool = False,
         profile_path: Directory for Chromium profile data.
         duration_seconds: How long to keep the browser open.
         auto: If True, auto-visit common sites first.
-        copy_wa: If True, copy WebAutomation profile data first.
+        copy_wa: If True, copy a detected seed profile first.
+        copy_from: Optional explicit seed profile path.
     """
     try:
         from playwright.sync_api import sync_playwright
@@ -150,8 +173,8 @@ def warmup(profile_path: Path, duration_seconds: int = 1800, auto: bool = False,
     print()
 
     # Optionally copy from WebAutomation
-    if copy_wa:
-        copy_from_webautomation(profile_path)
+    if copy_wa or copy_from:
+        copy_from_seed_profile(profile_path, copy_from)
 
     # Import stealth JS from AutoBrowser
     try:
@@ -261,7 +284,7 @@ def main():
         "--profile",
         type=str,
         default=None,
-        help="Custom profile directory path. Default: %%LOCALAPPDATA%%\\.nakedweb\\browser_profile",
+        help="Custom profile directory path. Default: OS-specific NakedWeb browser profile path.",
     )
     parser.add_argument(
         "--duration",
@@ -277,12 +300,22 @@ def main():
     parser.add_argument(
         "--copy-wa",
         action="store_true",
-        help="Copy profile data from WebAutomation profiles before warming up",
+        help="Copy profile data from a detected seed profile before warming up",
+    )
+    parser.add_argument(
+        "--copy-from",
+        type=str,
+        default=None,
+        help="Explicit source profile directory to copy before warming up.",
     )
     args = parser.parse_args()
 
-    profile_path = Path(args.profile) if args.profile else get_default_profile_path()
-    warmup(profile_path, args.duration, args.auto, args.copy_wa)
+    profile_path = (
+        Path(args.profile).expanduser().resolve()
+        if args.profile
+        else get_default_profile_path().resolve()
+    )
+    warmup(profile_path, args.duration, args.auto, args.copy_wa, args.copy_from)
 
 
 if __name__ == "__main__":
